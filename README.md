@@ -249,4 +249,10 @@ streamlit run frontend/streamlit_app.py
 
 ## License
 
-MIT
+Copyright (c) 2026. All rights reserved.
+
+This repository and its contents are proprietary and confidential.
+No part of this project may be copied, modified, distributed, or used
+without explicit written permission from the author.
+
+Shared for evaluation purposes only.
