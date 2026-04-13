@@ -21,61 +21,87 @@ An OT/ICS cybersecurity agentic AI platform built with LangGraph, FastAPI, AWS B
 
 ```mermaid
 flowchart TD
-    User(["Analyst / SOC"])
-    User -->|Natural language query| SD["Streamlit Dashboard\n(EC2)"]
-    SD -->|HTTP / REST| FB["FastAPI Backend"]
+    %% ── USER ──────────────────────────────────────────
+    User(["👤 Analyst / SOC"])
+    User -->|"Natural language query"| SD
 
-    subgraph AGENTIC ["AGENTIC CORE — ECS Fargate"]
-        FB --> RBAC["RBAC Middleware\n(JWT Auth)"]
-        RBAC --> SUP{"Supervisor Agent\n(Intent Router)"}
+    %% ── FRONTEND ──────────────────────────────────────
+    SD["🖥️ Streamlit Dashboard\n── EC2 ──"]
+    SD -->|"HTTP / REST"| FB
 
-        SUP -->|threat_intel| TIA["Threat Intel Agent"]
-        SUP -->|asset_risk| ARA["Asset Risk Agent"]
-        SUP -->|vuln_scoring| VSA["Vuln Scoring Agent"]
-        SUP -->|compliance| CA["Compliance Agent"]
-        SUP -->|incident_resp| IRA["Incident Resp Agent"]
+    %% ── AGENTIC CORE ──────────────────────────────────
+    subgraph AGENTIC ["⚙️  AGENTIC CORE — ECS Fargate   (LangGraph)"]
+        direction TB
+        FB["🚀 FastAPI Backend"]
+        FB --> RBAC["🔐 RBAC Middleware  |  JWT Auth"]
+        RBAC --> SUP{"🧠 Supervisor Agent\nIntent Router"}
 
-        TIA --> MCP1["mcp-threat-intel\nVirusTotal · IOCs · TTPs"]
-        ARA --> MCP2["mcp-ot-assets\nInventory · Firmware · Cores"]
-        VSA --> MCP3["mcp-vuln-mgmt\nCVE · CVSS · Patch Status"]
-        CA  --> MCP4["mcp-compliance\nNERC CIF · IEC 62443"]
-        IRA --> MCP5["mcp-cap-search\nPlaybooks · Advisories"]
+        SUP -->|threat_intel|   TIA["🕵️ Threat Intel\nAgent"]
+        SUP -->|asset_risk|     ARA["🏭 Asset Risk\nAgent"]
+        SUP -->|vuln_scoring|   VSA["🐛 Vuln Scoring\nAgent"]
+        SUP -->|compliance|     CA["📋 Compliance\nAgent"]
+        SUP -->|incident_resp|  IRA["🚨 Incident Resp\nAgent"]
 
-        TIA & ARA & VSA & CA & IRA --> RAG["RAG Retrieval Layer\npgvector cosine · cross-encoder re-rank"]
-        RAG --> HIL["HIL Approval Node\nLangGraph interrupt → analyst review → resume"]
-        HIL --> AL["Audit Logger"]
+        TIA --- MCP1["mcp-threat-intel\nVirusTotal · IOCs · TTPs"]
+        ARA --- MCP2["mcp-ot-assets\nInventory · Firmware · Cores"]
+        VSA --- MCP3["mcp-vuln-mgmt\nCVE · CVSS · Patch Status"]
+        CA  --- MCP4["mcp-compliance\nNERC CIF · IEC 62443"]
+        IRA --- MCP5["mcp-cap-search\nPlaybooks · Advisories"]
+
+        TIA & ARA & VSA & CA & IRA --> RAG
+
+        RAG["🔍 RAG Retrieval Layer\npgvector cosine  +  cross-encoder re-rank"]
+        RAG --> HIL["✋ HIL Approval Node\nLangGraph interrupt → analyst review → resume"]
+        HIL --> AUDIT["📝 Audit Logger"]
     end
 
-    subgraph INGESTION ["INGESTION PIPELINE — Edge collectors + Kafka + Python workers"]
-        I1["Modbus/DNP3/OPC-UA"]
-        I2["Syslog/PCAP/SCADA"]
-        I3["ICS-CERT/NVD feeds"]
-        I4["MITRE ATT&CK ICS"]
-        I5["Worldview/ISAC"]
-    end
-
-    subgraph DATA ["DATA LAYER — Aurora PostgreSQL + pgvector (AWS RDS)"]
+    %% ── DATA LAYER ────────────────────────────────────
+    subgraph DATA ["🗄️  DATA LAYER — Aurora PostgreSQL + pgvector  (AWS RDS)"]
+        direction LR
         D1[("ot_events")]
         D2[("asset_inventory")]
         D3[("cve_records")]
         D4[("threat_groups")]
-        D5[("rag_chunks\n pgvector 1536")]
+        D5[("rag_chunks\nvector 1536")]
         D6[("anomaly_alerts")]
         D7[("approval_queue")]
-        D8[("users / audit_log")]
+        D8[("audit_log")]
     end
 
-    subgraph DEPLOY ["DEPLOYMENT — AWS"]
-        AWS1["ECS Fargate"]
-        AWS2["EC2 (Streamlit)"]
-        AWS3["Aurora RDS"]
-        AWS4["Bedrock (TitanHaiku)"]
-        AWS5["CloudWatch / S3"]
+    %% ── INGESTION PIPELINE ────────────────────────────
+    subgraph INGESTION ["📡  INGESTION PIPELINE — Edge Collectors + Kafka + Python Workers"]
+        direction LR
+        I1["Modbus / DNP3\n/ OPC-UA"]
+        I2["Syslog / PCAP\n/ SCADA"]
+        I3["ICS-CERT\n/ NVD Feeds"]
+        I4["MITRE ATT&CK\nICS"]
+        I5["Worldview\n/ ISAC"]
     end
 
-    I1 & I2 & I3 & I4 & I5 --> DATA
-    AGENTIC --> DATA
-    DATA --> AGENTIC
+    %% ── DEPLOYMENT ────────────────────────────────────
+    subgraph DEPLOY ["☁️  DEPLOYMENT — AWS"]
+        direction LR
+        AWS1["ECS Fargate\n(API)"]
+        AWS2["EC2\n(Streamlit)"]
+        AWS3["Aurora RDS\n(pgvector)"]
+        AWS4["Bedrock\n(TitanHaiku)"]
+        AWS5["CloudWatch\n/ S3"]
+    end
+
+    %% ── CONNECTIONS ───────────────────────────────────
+    INGESTION -->|"Kafka topics"| DATA
+    AGENTIC   <-->|"SQLAlchemy / pgvector queries"| DATA
+    AGENTIC   -.->|"LLM calls"| AWS4
+
+    %% ── STYLES ────────────────────────────────────────
+    style AGENTIC  fill:#f0f4ff,stroke:#5c7cfa,stroke-width:2px
+    style DATA     fill:#fff8e1,stroke:#f59f00,stroke-width:2px
+    style INGESTION fill:#e6fcf5,stroke:#20c997,stroke-width:2px
+    style DEPLOY   fill:#fff0f6,stroke:#e64980,stroke-width:2px
+    style SUP      fill:#d0ebff,stroke:#1971c2
+    style RAG      fill:#d3f9d8,stroke:#2f9e44
+    style HIL      fill:#ffe8cc,stroke:#e67700
+    style AUDIT    fill:#f3f0ff,stroke:#7048e8
 ```
 
 ---
