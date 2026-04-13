@@ -1,0 +1,14 @@
+{
+  "_comment": "ECS Fargate Task Definition for Cybersec Agentic AI",
+  "_steps": [
+    "Step 1: Set family name, task role ARN, execution role ARN",
+    "Step 2: Configure networkMode: awsvpc",
+    "Step 3: Set CPU and memory (e.g. 1024 CPU / 2048 MB for API container)",
+    "Step 4: Define containerDefinitions for FastAPI app",
+    "Step 5: Set image URI from ECR (e.g. <account>.dkr.ecr.<region>.amazonaws.com/cybersec-api:latest)",
+    "Step 6: Map port 8000 for FastAPI",
+    "Step 7: Inject env vars from AWS Secrets Manager / Parameter Store",
+    "Step 8: Configure CloudWatch log group for container logs",
+    "Step 9: Set healthCheck command: curl -f http://localhost:8000/health"
+  ]
+}
