@@ -19,77 +19,151 @@ An OT/ICS cybersecurity agentic AI platform built with LangGraph, FastAPI, AWS B
 
 ## Architecture
 
+> Three diagrams covering: (1) Agentic Core Flow, (2) RAG + Data Pipeline, (3) AWS Deployment
+
+---
+
+### Diagram 1 — Agentic Core Flow
+
 ```mermaid
 flowchart TD
-    User(["Analyst / SOC"])
-    User -->|Natural language query| SD["Streamlit Dashboard - EC2"]
-    SD -->|HTTP / REST| FB
+    User((User))
+    User -->|Natural Language| SD[Streamlit Dashboard]
+    SD -->|API Request| FB
 
-    subgraph AGENTIC [AGENTIC CORE - ECS Fargate - LangGraph]
-        direction TB
-        FB["FastAPI Backend"]
-        FB --> RBAC["RBAC Middleware - JWT Auth"]
-        RBAC --> SUP{"Supervisor Agent\nIntent Router"}
+    subgraph CORE [Agentic Core - LangGraph on ECS Fargate]
+        FB[FastAPI Backend]
+        FB --> RBAC[RBAC Middleware - JWT Auth]
+        RBAC --> SUP{Supervisor Agent}
 
-        SUP -->|threat_intel| TIA["Threat Intel Agent"]
-        SUP -->|asset_risk| ARA["Asset Risk Agent"]
-        SUP -->|vuln_scoring| VSA["Vuln Scoring Agent"]
-        SUP -->|compliance| CA["Compliance Agent"]
-        SUP -->|incident_resp| IRA["Incident Resp Agent"]
+        SUP -->|Intents| TIA[Threat Intel Agent]
+        SUP -->|Intents| ARA[Asset Risk Agent]
+        SUP -->|Intents| VSA[Vuln Scoring Agent]
+        SUP -->|Intents| CA[Compliance Agent]
+        SUP -->|Intents| IRA[Incident Resp Agent]
 
-        TIA --- MCP1["mcp-threat-intel\nVirusTotal, IOCs, TTPs"]
-        ARA --- MCP2["mcp-ot-assets\nInventory, Firmware, Cores"]
-        VSA --- MCP3["mcp-vuln-mgmt\nCVE, CVSS, Patch Status"]
-        CA  --- MCP4["mcp-compliance\nNERC CIF, IEC 62443"]
-        IRA --- MCP5["mcp-cap-search\nPlaybooks, Advisories"]
-
-        TIA & ARA & VSA & CA & IRA --> RAG["RAG Retrieval Layer\npgvector cosine + cross-encoder re-rank"]
-        RAG --> HIL["HIL Approval Node\nLangGraph interrupt - analyst review - resume"]
-        HIL --> AUDIT["Audit Logger"]
+        TIA -->|Tool Calling| MCP1[mcp-threat-intel\nVirusTotal - IOCs - TTPs]
+        ARA -->|Tool Calling| MCP2[mcp-ot-assets\nInventory - Firmware - Cores]
+        VSA -->|Tool Calling| MCP3[mcp-vuln-mgmt\nCVE - CVSS - Patch Status]
+        CA  -->|Tool Calling| MCP4[mcp-compliance\nNERC CIF - IEC 62443]
+        IRA -->|Tool Calling| MCP5[mcp-cap-search\nPlaybooks - Advisories]
     end
 
-    subgraph INGESTION [INGESTION PIPELINE - Edge Collectors + Kafka + Python Workers]
-        direction LR
-        I1["Modbus / DNP3 / OPC-UA"]
-        I2["Syslog / PCAP / SCADA"]
-        I3["ICS-CERT / NVD Feeds"]
-        I4["MITRE ATT&CK ICS"]
-        I5["Worldview / ISAC"]
+    MCP1 -->|RAG + LLM| OUT[RAG + HIL + Audit Layer]
+    MCP2 -->|RAG + LLM| OUT
+    MCP3 -->|RAG + LLM| OUT
+    MCP4 -->|RAG + LLM| OUT
+    MCP5 -->|RAG + LLM| OUT
+
+    style CORE fill:#fafafa,stroke:#5c7cfa,stroke-width:2px
+    style SUP  fill:#d0ebff,stroke:#1971c2
+```
+
+---
+
+### Diagram 2 — RAG, HIL and Data Pipeline
+
+```mermaid
+flowchart TD
+    IN[Agent Output]
+
+    subgraph RAG_LAYER [RAG Retrieval Layer]
+        R1[pgvector Cosine Search]
+        R2[Cross-Encoder Re-rank]
+        R1 --> R2
     end
 
-    subgraph DATA [DATA LAYER - Aurora PostgreSQL + pgvector - AWS RDS]
-        direction LR
-        D1[("ot_events")]
-        D2[("asset_inventory")]
-        D3[("cve_records")]
-        D4[("threat_groups")]
-        D5[("rag_chunks\nvector-1536")]
-        D6[("anomaly_alerts")]
-        D7[("approval_queue")]
-        D8[("audit_log")]
+    IN --> R1
+    R2 --> HIL
+
+    subgraph HIL_LAYER [Human-in-the-Loop - LangGraph Interrupt]
+        HIL{Analyst Review}
+        HIL -->|Approved| AUDIT[Audit Logger]
+        HIL -->|Rejected| AUDIT
     end
 
-    subgraph DEPLOY [DEPLOYMENT - AWS]
-        direction LR
-        AWS1["ECS Fargate"]
-        AWS2["EC2 Streamlit"]
-        AWS3["Aurora RDS"]
-        AWS4["Bedrock TitanHaiku"]
-        AWS5["CloudWatch / S3"]
+    AUDIT --> DB
+
+    subgraph DB [Data Layer - Aurora PostgreSQL + pgvector]
+        D1[(ot_events)]
+        D2[(asset_inventory)]
+        D3[(cve_records)]
+        D4[(threat_groups)]
+        D5[(rag_chunks\nvector-1536)]
+        D6[(anomaly_alerts)]
+        D7[(approval_queue)]
+        D8[(audit_log)]
     end
 
-    INGESTION -->|Kafka topics| DATA
-    AGENTIC <-->|SQLAlchemy / pgvector| DATA
-    AGENTIC -.->|LLM calls| AWS4
+    subgraph INGEST [Ingestion Pipeline - Kafka + Python Workers]
+        I1[Modbus / DNP3 / OPC-UA]
+        I2[Syslog / PCAP / SCADA]
+        I3[ICS-CERT / NVD Feeds]
+        I4[MITRE ATT&CK ICS]
+        I5[Worldview / ISAC]
+    end
 
-    style AGENTIC   fill:#f0f4ff,stroke:#5c7cfa,stroke-width:2px
-    style DATA      fill:#fff8e1,stroke:#f59f00,stroke-width:2px
-    style INGESTION fill:#e6fcf5,stroke:#20c997,stroke-width:2px
-    style DEPLOY    fill:#fff0f6,stroke:#e64980,stroke-width:2px
-    style SUP       fill:#d0ebff,stroke:#1971c2
-    style RAG       fill:#d3f9d8,stroke:#2f9e44
+    I1 -->|Kafka| DB
+    I2 -->|Kafka| DB
+    I3 -->|Kafka| DB
+    I4 -->|Kafka| DB
+    I5 -->|Kafka| DB
+
+    style RAG_LAYER fill:#e6fcf5,stroke:#20c997,stroke-width:2px
+    style HIL_LAYER fill:#fff8e1,stroke:#f59f00,stroke-width:2px
+    style DB        fill:#f0f4ff,stroke:#5c7cfa,stroke-width:2px
+    style INGEST    fill:#fff0f6,stroke:#e64980,stroke-width:2px
     style HIL       fill:#ffe8cc,stroke:#e67700
     style AUDIT     fill:#f3f0ff,stroke:#7048e8
+```
+
+---
+
+### Diagram 3 — AWS Deployment Architecture
+
+```mermaid
+flowchart LR
+    subgraph USER [User Layer]
+        U[Analyst - SOC]
+    end
+
+    subgraph FRONTEND [Frontend - EC2]
+        SD[Streamlit Dashboard]
+    end
+
+    subgraph API [Agentic Core - ECS Fargate]
+        FB[FastAPI + LangGraph]
+    end
+
+    subgraph AI [AI Layer - AWS Bedrock]
+        LLM[TitanHaiku - LLM]
+        EMB[Titan Embed - Embeddings]
+    end
+
+    subgraph STORAGE [Storage - AWS RDS]
+        PG[(Aurora PostgreSQL\n+ pgvector)]
+    end
+
+    subgraph OBS [Observability]
+        CW[CloudWatch Logs]
+        S3[S3 - Exports]
+    end
+
+    U --> SD
+    SD --> FB
+    FB --> LLM
+    FB --> EMB
+    FB --> PG
+    EMB --> PG
+    FB --> CW
+    FB --> S3
+
+    style USER     fill:#f3f0ff,stroke:#7048e8,stroke-width:2px
+    style FRONTEND fill:#e6fcf5,stroke:#20c997,stroke-width:2px
+    style API      fill:#f0f4ff,stroke:#5c7cfa,stroke-width:2px
+    style AI       fill:#fff8e1,stroke:#f59f00,stroke-width:2px
+    style STORAGE  fill:#fff0f6,stroke:#e64980,stroke-width:2px
+    style OBS      fill:#fafafa,stroke:#868e96,stroke-width:2px
 ```
 
 ---
