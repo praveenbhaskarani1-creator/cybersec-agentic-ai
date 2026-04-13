@@ -1,18 +1,25 @@
-# Cybersec Agentic AI System
+# OT/ICS Cybersecurity Agentic AI Platform
 
-An OT/ICS cybersecurity agentic AI platform built with LangGraph, FastAPI, AWS Bedrock, and PostgreSQL + pgvector. Enables SOC analysts to query threat intelligence, asset risk, vulnerabilities, compliance posture, and incident response playbooks via natural language.
+A natural language agentic AI system purpose-built for **industrial cybersecurity operations**. Designed for SOC analysts and incident responders working in OT/ICS environments — enabling real-time threat intelligence lookups, asset risk scoring, vulnerability prioritization, compliance gap analysis, and incident response playbook retrieval through a conversational interface.
+
+The platform ingests from industrial protocol streams (Modbus, DNP3, OPC-UA), threat intel feeds (MITRE ATT&CK ICS, WorldView, ISAC), and vulnerability databases (NVD, ICS-CERT) — correlating them against a live OT asset inventory to surface actionable intelligence for named threat group tracking (e.g. VOLTZITE, KAMACITE), NERC CIP compliance posture, and Crown Jewel asset protection.
+
+Built with a **Human-in-the-Loop** approval gate via LangGraph interrupt, ensuring analyst oversight before any recommended action is executed — critical for OT environments where a wrong response can impact physical operations.
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | Streamlit (EC2) |
-| API | FastAPI + JWT RBAC |
-| Agentic Core | LangGraph (ECS Fargate) |
-| LLM | AWS Bedrock (TitanHaiku) |
-| Embeddings | AWS Bedrock Titan Embed |
-| Vector DB | Aurora PostgreSQL + pgvector |
-| Message Queue | Apache Kafka |
+| Frontend | Streamlit (EC2) — SOC analyst dashboard |
+| API | FastAPI + JWT RBAC — role-based access for analysts and admins |
+| Agentic Core | LangGraph (ECS Fargate) — multi-agent supervisor with HIL interrupt |
+| LLM | AWS Bedrock (TitanHaiku) — low-latency inference |
+| Embeddings | AWS Bedrock Titan Embed — 1536-dim semantic search |
+| Vector DB | Aurora PostgreSQL + pgvector — OT-aware RAG retrieval |
+| Message Queue | Apache Kafka — real-time OT event streaming |
+| Protocols | Modbus, DNP3, OPC-UA, Syslog, PCAP/SCADA |
+| Threat Feeds | MITRE ATT&CK ICS, WorldView, ISAC, ICS-CERT, NVD |
+| Compliance | NERC CIP, IEC 62443 |
 | Infra | AWS ECS Fargate, EC2, Aurora RDS, CloudWatch, S3 |
 
 ---
@@ -237,13 +244,15 @@ streamlit run frontend/streamlit_app.py
 
 ## Key Features
 
-- **Natural Language Queries** — SOC analysts query in plain English
-- **Supervisor Intent Routing** — LangGraph routes to the correct specialist agent
-- **RAG with Re-ranking** — pgvector cosine search + cross-encoder for precision
-- **Human-in-the-Loop** — LangGraph interrupt for analyst approval before sensitive actions
-- **RBAC** — JWT-based role enforcement (analyst / admin / readonly)
-- **Full Audit Trail** — every action logged to audit_log table
-- **Real-time Ingestion** — Kafka-based pipeline from OT edge devices and threat feeds
+- **OT-Aware Threat Intelligence** — tracks named threat groups (VOLTZITE, KAMACITE etc.) with IOC correlation against live OT event streams
+- **Asset Visibility + Risk Scoring** — real-time inventory of OT assets (vendor, firmware, CVEs) with automated risk scoring based on exposure and criticality
+- **ICS Vulnerability Prioritization** — CVE scoring weighted by CVSS, asset criticality, and patch availability — not just generic CVSS rankings
+- **Compliance Gap Analysis** — automated posture checks against NERC CIP and IEC 62443 controls with evidence-backed gap reports
+- **Incident Response Playbooks** — retrieves and recommends ICS-specific playbooks and CISA advisories based on the incident type
+- **Human-in-the-Loop Approval** — LangGraph interrupt node ensures analyst review before any recommended action executes — essential for OT safety
+- **Protocol-Level Ingestion** — Modbus, DNP3, OPC-UA, Syslog, and PCAP collectors feed a Kafka pipeline into the OT event store
+- **Semantic RAG over ICS Knowledge** — pgvector cosine search + cross-encoder re-ranking over MITRE ATT&CK ICS, WorldView reports, and NVD advisories
+- **Role-Based Access Control** — JWT-enforced roles (analyst, admin, readonly) with full audit trail for every action
 
 ---
 
